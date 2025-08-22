@@ -37,90 +37,81 @@ const Requests = () => {
       where("status", "in", ["pending", "accepted"])
     );
 
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        (async () => {
-          const raw = snapshot.docs.map((snap) => {
-            const data = snap.data();
-            let jsDate = null;
-            if (data.date && typeof data.date.toDate === "function") {
-              jsDate = data.date.toDate();
-            } else if (data.date) {
-              jsDate = new Date(data.date);
-            }
-
-            return {
-              id: snap.id,
-              userId: data.userId,
-              amount: data.amount,
-              status: data.status,
-              fullName:
-                data.fullName || data.userName || data.clientName || null,
-              date: jsDate,
-              rawDateValue: data.date,
-              hour: data.hour,
-              platform: data.platform,
-            };
-          });
-
-          const toLookup = raw
-            .filter((b) => !b.fullName)
-            .map((b) => b.userId);
-          const unique = [...new Set(toLookup)];
-
-          const snapshots = await Promise.all(
-            unique.map((uid) => getDoc(doc(db, "users", uid)))
-          );
-          const nameMap = {};
-          snapshots.forEach((uSnap) => {
-            if (uSnap.exists()) {
-              const u = uSnap.data();
-              nameMap[uSnap.id] =
-                u.fullName ||
-                u.name ||
-                [u.firstName, u.lastName].filter(Boolean).join(" ") ||
-                u.displayName ||
-                null;
-            }
-          });
-
-          const enriched = raw.map((b) => ({
-            ...b,
-            fullName: b.fullName || nameMap[b.userId] || b.userId,
-          }));
-
-          // Send email for new pending bookings
-          const newPending = enriched.filter(
-            (b) => b.status === "pending" && !notifiedBookingsRef.current.has(b.id)
-          );
-
-          if (newPending.length > 0 && user?.email) {
-            const doctorSnap = await getDoc(doc(db, "consultants", user.uid));
-            if (doctorSnap.exists()) {
-              const doctor = doctorSnap.data();
-              await sendNotif({
-                email: user.email,
-                name: doctor.name,
-                bookings: newPending,
-              });
-
-              newPending.forEach((b) => notifiedBookingsRef.current.add(b.id));
-            }
+    const unsub = onSnapshot(q, (snapshot) => {
+      (async () => {
+        const raw = snapshot.docs.map((snap) => {
+          const data = snap.data();
+          let jsDate = null;
+          if (data.date && typeof data.date.toDate === "function") {
+            jsDate = data.date.toDate();
+          } else if (data.date) {
+            jsDate = new Date(data.date);
           }
 
-          setBookings(enriched);
-          setLoading(false);
-        })().catch((e) => {
-          console.error("Error enriching bookings:", e);
-          setLoading(false);
+          return {
+            id: snap.id,
+            userId: data.userId,
+            amount: data.amount,
+            status: data.status,
+            fullName:
+              data.fullName || data.userName || data.clientName || null,
+            date: jsDate,
+            rawDateValue: data.date,
+            hour: data.hour,
+            platform: data.platform,
+          };
         });
-      },
-      (err) => {
-        console.error("Error loading bookings:", err);
+
+        const toLookup = raw.filter((b) => !b.fullName).map((b) => b.userId);
+        const unique = [...new Set(toLookup)];
+
+        const snapshots = await Promise.all(
+          unique.map((uid) => getDoc(doc(db, "users", uid)))
+        );
+        const nameMap = {};
+        snapshots.forEach((uSnap) => {
+          if (uSnap.exists()) {
+            const u = uSnap.data();
+            nameMap[uSnap.id] =
+              u.fullName ||
+              u.name ||
+              [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+              u.displayName ||
+              null;
+          }
+        });
+
+        const enriched = raw.map((b) => ({
+          ...b,
+          fullName: b.fullName || nameMap[b.userId] || b.userId,
+        }));
+
+        // Send email for new pending bookings
+        const newPending = enriched.filter(
+          (b) => b.status === "pending" && !notifiedBookingsRef.current.has(b.id)
+        );
+
+        if (newPending.length > 0 && user?.email) {
+          const doctorSnap = await getDoc(doc(db, "consultants", user.uid));
+          if (doctorSnap.exists()) {
+            const doctor = doctorSnap.data();
+            await sendNotif({
+              email: user.email,
+              name: doctor.name,
+              bookings: newPending,
+            });
+
+            newPending.forEach((b) => notifiedBookingsRef.current.add(b.id));
+          }
+        }
+
+        setBookings(enriched);
         setLoading(false);
-      }
-    );
+      })().catch((e) => {
+        console.error("Error enriching bookings:", e);
+        setLoading(false);
+      });
+    });
 
     return () => unsub();
   }, [user, nav]);
@@ -128,12 +119,10 @@ const Requests = () => {
   const accept = async (id) => {
     setBusyId(id);
     try {
-      // Just delegate both status update & client-creation to the server
       const res = await fetch(`${API_BASE}/api/bookings/${id}/accept`, {
         method: "POST",
       });
       if (!res.ok) throw new Error(await res.text());
-
       alert("Booking accepted! Client added.");
     } catch (e) {
       console.error("Accept error:", e);
@@ -147,11 +136,10 @@ const Requests = () => {
     if (!window.confirm("Decline this booking?")) return;
     setBusyId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/${id}/accept`, {
+      const res = await fetch(`${API_BASE}/api/bookings/${id}/decline`, {
         method: "POST",
       });
       if (!res.ok) throw new Error(await res.text());
-
       alert("Booking declined.");
     } catch (e) {
       console.error("Decline error:", e);
@@ -192,7 +180,6 @@ const Requests = () => {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
       <main className="flex-1 pt-20 px-6">
-        {/* filter tabs */}
         <div className="flex gap-4 mb-4">
           <button
             onClick={() => setFilter("pending")}
@@ -226,7 +213,6 @@ const Requests = () => {
           </button>
         </div>
 
-        {/* dynamic heading */}
         <h1 className="text-3xl font-bold mb-6">
           {filter === "pending"
             ? "Pending Appointments"

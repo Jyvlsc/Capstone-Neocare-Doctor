@@ -1,10 +1,10 @@
-// src/components/Header.jsx
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { auth, db } from "../configs/firebase-config";
 import { doc, getDoc } from "firebase/firestore";
 import Logo from "../assets/Logo.png";
 
+// All possible links
 const ALL_LINKS = [
   ["/dashboard", "Dashboard"],
   ["/clients",   "Clients"],
@@ -14,12 +14,12 @@ const ALL_LINKS = [
 ];
 
 const Header = () => {
-  const nav        = useNavigate();
+  const nav = useNavigate();
   const { pathname } = useLocation();
-  const [open, setOpen] = useState(false);        // mobile drawer
+  const [open, setOpen] = useState(false);
   const [role, setRole] = useState(null);
 
-  // load the current user's role
+  // Load user role
   useEffect(() => {
     const u = auth.currentUser;
     if (!u) return;
@@ -37,11 +37,10 @@ const Header = () => {
     nav("/");
   };
 
-  // pick which links to show
-  const linksToShow =
-    role === "staff"
-      ? ALL_LINKS.filter(([href]) => href === "/clients" || href === "/requests")
-      : ALL_LINKS;
+  // Filter links based on role
+  const linksToShow = role === "staff"
+    ? ALL_LINKS.filter(([href]) => href === "/clients")
+    : ALL_LINKS;
 
   const linkClass = (href) =>
     `font-mono text-sm font-medium transition-colors py-2 md:py-0 ${
@@ -85,7 +84,7 @@ const Header = () => {
         </svg>
       </button>
 
-      {/* Navigation */}
+      {/* Navigation links */}
       <nav
         className={`flex-col md:flex-row md:flex items-center md:gap-8 absolute md:static
                     top-16 left-0 w-full md:w-auto bg-white/90 backdrop-blur-md md:bg-transparent
