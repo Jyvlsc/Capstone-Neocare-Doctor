@@ -53,8 +53,7 @@ const Requests = () => {
             userId: data.userId,
             amount: data.amount,
             status: data.status,
-            fullName:
-              data.fullName || data.userName || data.clientName || null,
+            fullName: data.fullName || data.userName || data.clientName || null,
             date: jsDate,
             rawDateValue: data.date,
             hour: data.hour,
@@ -88,7 +87,8 @@ const Requests = () => {
 
         // Send email for new pending bookings
         const newPending = enriched.filter(
-          (b) => b.status === "pending" && !notifiedBookingsRef.current.has(b.id)
+          (b) =>
+            b.status === "pending" && !notifiedBookingsRef.current.has(b.id)
         );
 
         if (newPending.length > 0 && user?.email) {
@@ -180,40 +180,29 @@ const Requests = () => {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
       <main className="flex-1 pt-20 px-6">
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => setFilter("pending")}
-            className={`px-4 py-2 rounded ${
-              filter === "pending"
-                ? "bg-[#DA79B9] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Appointment Requests
-          </button>
-          <button
-            onClick={() => setFilter("upcoming")}
-            className={`px-4 py-2 rounded ${
-              filter === "upcoming"
-                ? "bg-[#DA79B9] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Upcoming Appointments
-          </button>
-          <button
-            onClick={() => setFilter("completed")}
-            className={`px-4 py-2 rounded ${
-              filter === "completed"
-                ? "bg-[#DA79B9] text-white"
-                : "bg-white text-gray-700"
-            }`}
-          >
-            Completed Appointments
-          </button>
+        {/* Filter Tabs */}
+        <div className="flex gap-4 mb-6">
+          {["pending", "upcoming", "completed"].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 cursor-pointer ${
+                filter === f
+                  ? "bg-[#DA79B9] text-white shadow-md"
+                  : "bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              {f === "pending"
+                ? "Appointment Requests"
+                : f === "upcoming"
+                ? "Upcoming Appointments"
+                : "Completed Appointments"}
+            </button>
+          ))}
         </div>
 
-        <h1 className="text-3xl font-bold mb-6">
+        {/* Title */}
+        <h1 className="text-2xl font-bold mb-6 text-gray-800">
           {filter === "pending"
             ? "Pending Appointments"
             : filter === "upcoming"
@@ -221,15 +210,18 @@ const Requests = () => {
             : "Completed Appointments"}
         </h1>
 
+        {/* Bookings List */}
         <section className="space-y-4">
           {filteredBookings.length > 0 ? (
             filteredBookings.map((b) => (
               <div
                 key={b.id}
-                className="p-6 bg-white shadow-lg rounded-xl flex justify-between items-center border-l-4 border-[#DA79B9] hover:shadow-xl transition-shadow"
+                className="p-6 bg-white shadow-md rounded-xl flex justify-between items-center border-l-4 border-[#DA79B9] hover:shadow-xl transition-shadow"
               >
                 <div className="flex flex-col gap-1">
-                  <p className="font-semibold text-xl">{b.fullName}</p>
+                  <p className="font-semibold text-lg text-gray-900">
+                    {b.fullName}
+                  </p>
                   <p className="text-sm text-gray-600">
                     {b.date
                       ? fmtDate(b.date)
@@ -237,7 +229,7 @@ const Requests = () => {
                       ? new Date(b.rawDateValue).toLocaleString()
                       : "Date TBD"}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 font-medium">
                     ₱{(b.amount / 100).toFixed(2)}
                   </p>
                 </div>
@@ -246,14 +238,14 @@ const Requests = () => {
                     <button
                       onClick={() => accept(b.id)}
                       disabled={busyId === b.id}
-                      className="px-4 py-2 bg-[#DA79B9] text-white rounded disabled:opacity-50"
+                      className="px-4 py-2 bg-[#DA79B9] text-white rounded-lg shadow-sm hover:bg-[#c45ea7] disabled:opacity-50 transition-all duration-200 cursor-pointer"
                     >
                       {busyId === b.id ? "…" : "Accept"}
                     </button>
                     <button
                       onClick={() => decline(b.id)}
                       disabled={busyId === b.id}
-                      className="px-4 py-2 border border-[#DA79B9] text-[#DA79B9] rounded disabled:opacity-50"
+                      className="px-4 py-2 border border-[#DA79B9] text-[#DA79B9] rounded-lg shadow-sm hover:bg-pink-50 disabled:opacity-50 transition-all duration-200 cursor-pointer"
                     >
                       {busyId === b.id ? "…" : "Decline"}
                     </button>

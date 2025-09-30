@@ -15,7 +15,9 @@ const Login = () => {
       const { user } = await signInWithEmailAndPassword(auth, email, password);
       const snap = await getDoc(doc(db, "consultants", user.uid));
       if (snap.exists() && snap.data().approvalStatus !== "accepted") {
-        alert("Your account is not yet approved. Please wait for clinic approval.");
+        alert(
+          "Your account is not yet approved. Please wait for clinic approval."
+        );
         await signOut(auth);
         return;
       }
@@ -84,7 +86,10 @@ const Login = () => {
           </button>
 
           <div className="w-full flex justify-end">
-            <Link className="font-medium text-sm font-mono underline text-[#DA79B9]">
+            <Link
+              to="/forgot-password"
+              className="font-medium text-sm font-mono underline text-[#DA79B9]"
+            >
               Forgot Password?
             </Link>
           </div>
@@ -93,7 +98,7 @@ const Login = () => {
         {/* footer links */}
         <div className="flex flex-col items-center gap-3 mt-6">
           <span className="underline text-[#DA79B9]">Need Help?</span>
-          <span className="text-gray-800"> 
+          <span className="text-gray-800">
             Don't have an account?{" "}
             <Link to="/register" className="underline text-[#DA79B9]">
               Sign Up!
