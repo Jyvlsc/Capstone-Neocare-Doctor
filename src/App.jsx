@@ -20,6 +20,7 @@ import ChatComponent from "./components/ChatComponent";
 import AddConsultationNote from "./screens/AddConsultationNote";
 import ClientDetails from "./screens/ClientDetails";
 import Profile from "./screens/Profile";
+import ForgotPassword from "./screens/ForgotPassword";
 
 /* firebase */
 import { auth } from "./configs/firebase-config";
@@ -50,18 +51,89 @@ function App() {
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected routes */}
-        <Route path="/landing" element={<PrivateRoute><LandingPage /></PrivateRoute>} />
-        <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-        <Route path="/forum" element={<PrivateRoute><Forum /></PrivateRoute>} />
-        <Route path="/requests" element={<PrivateRoute><Requests /></PrivateRoute>} />
-        <Route path="/clients" element={<PrivateRoute><Clients /></PrivateRoute>} />
-        <Route path="/clients/add-consultation-note/:id" element={<PrivateRoute><AddConsultationNote /></PrivateRoute>} />
-        <Route path="/clients/:id" element={<PrivateRoute><ClientDetails /></PrivateRoute>} />
-        <Route path="/chat" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
-        <Route path="/chat/:chatId" element={<PrivateRoute><ChatComponent /></PrivateRoute>} />
-        <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route
+          path="/landing"
+          element={
+            <PrivateRoute>
+              <LandingPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/forum"
+          element={
+            <PrivateRoute>
+              <Forum />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/requests"
+          element={
+            <PrivateRoute>
+              <Requests />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/clients"
+          element={
+            <PrivateRoute>
+              <Clients />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/clients/add-consultation-note/:id"
+          element={
+            <PrivateRoute>
+              <AddConsultationNote />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/clients/:id"
+          element={
+            <PrivateRoute>
+              <ClientDetails />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <PrivateRoute>
+              <ChatPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/chat/:chatId"
+          element={
+            <PrivateRoute>
+              <ChatComponent />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Profile />
+            </PrivateRoute>
+          }
+        />
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
