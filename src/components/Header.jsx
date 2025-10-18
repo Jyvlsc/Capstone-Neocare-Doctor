@@ -92,9 +92,7 @@ const Header = () => {
           <span className="text-2xl font-mono font-black text-[#DA79B9] leading-6">
             NeoCare
           </span>
-          <span className="text-xs text-gray-500 font-medium tracking-wide">
-            Pediatric Excellence
-          </span>
+        
         </div>
       </Link>
 
@@ -160,7 +158,7 @@ const Header = () => {
         {/* User Info */}
         <div className="flex flex-col items-end mr-4">
           <span className="font-mono text-sm font-semibold text-gray-900 truncate max-w-[180px]">
-            {userData?.displayName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || "User"}
+            {userData?.name|| auth.currentUser?.name}
           </span>
           <span className="font-mono text-xs text-gray-500 capitalize">
             {role || "User"} • {auth.currentUser?.email || "Guest"}

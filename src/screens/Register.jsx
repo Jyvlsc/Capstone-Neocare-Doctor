@@ -297,293 +297,304 @@ export default function Register() {
         <span className="text-4xl font-extrabold font-mono text-[#DA79B9]">NeoCare</span>
       </Link>
 
-      {/* Role selector */}
-      <div className="bg-white shadow-lg rounded-xl w-full max-w-md p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Register as</h2>
-        <div className="flex space-x-6">
-          {["consultant","staff"].map(r => (
-            <label key={r} className="flex items-center space-x-2">
-              <input
-                type="radio"
-                className="h-5 w-5 text-[#DA79B9]"
-                checked={role === r}
-                onChange={() => setRole(r)}
-              />
-              <span className="text-gray-800">
-                {r==="consultant"?"Consultant":"Medical Staff"}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Staff Form */}
-      {role === "staff" && (
-        <div className="bg-white shadow-lg rounded-xl w-full max-w-md p-8">
-          <h2 className="text-2xl font-bold mb-6">Register as Medical Staff</h2>
-          {[
-            ["First Name", first, setFirst],
-            ["Last Name",  last,  setLast],
-            ["Email",      email, setEmail,    "email"],
-            ["Password",   pwd,   setPwd,      "password"],
-            ["Confirm Password", pwd2, setPwd2,"password"],
-            ["Consultant's Email", docEmail, setDocEmail, "email"],
-          ].map(([lbl, val, setter, type="text"]) => (
-            <div key={lbl} className="mb-4">
-              <label className="block text-sm font-medium">{lbl}</label>
-              <input
-                type={type}
-                value={val}
-                onChange={e => setter(e.target.value)}
-                placeholder={lbl}
-                className="mt-1 w-full rounded-xl border border-[#DA79B9] px-4 py-2"
-              />
-            </div>
-          ))}
-          <div className="flex space-x-4">
-            <button
-              onClick={handleBackToLogin}
-              className="flex-1 py-3 mt-6 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition-colors flex items-center justify-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Back</span>
-            </button>
-            <button
-              onClick={submit}
-              className="flex-1 py-3 mt-6 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors"
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Consultant Form */}
-      {role === "consultant" && (
-        <div className="bg-white shadow-lg rounded-xl w-full max-w-5xl overflow-hidden md:flex">
-          {/* Left – Details */}
-          <div className="md:w-1/2 p-8 space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800">Register as Consultant</h2>
-
-            {/* Identity */}
-            {[
-              ["Email",     email, setEmail, "email"],
-              ["First Name", consultFirstName, setConsultFirstName],
-              ["Last Name", consultLastName, setConsultLastName],
-              ["Specialty", spec, setSpec],
-            ].map(([lbl, val, setter, type="text"]) => (
-              <div key={lbl}>
-                <label className="block text-sm font-medium text-gray-800">{lbl}</label>
-                <input
-                  type={type}
-                  value={val}
-                  onChange={e => setter(e.target.value)}
-                  placeholder={`Enter ${lbl}`}
-                  className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
-                />
-              </div>
-            ))}
-
-            {/* Photo Upload - Updated with Button Style */}
-            <div>
-              <label className="block text-sm font-medium text-gray-800 mb-2">
-                Profile Photo
-              </label>
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={onPhoto} 
-                ref={fileInputRef}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={handleFileButtonClick}
-                className="w-full py-2 px-4 border-2 border-dashed border-[#DA79B9] rounded-xl text-[#DA79B9] hover:bg-[#F2C2DE] hover:border-solid transition-all duration-200 flex items-center justify-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span>{photo ? 'Change Photo' : 'Choose Profile Photo'}</span>
-              </button>
-              {photo && (
-                <p className="mt-2 text-sm text-green-600 text-center">
-                  ✓ {photo.name} selected
-                </p>
-              )}
-              {preview && (
-                <div className="mt-4 flex justify-center">
-                  <img 
-                    src={preview} 
-                    alt="preview" 
-                    className="w-24 h-24 object-cover rounded-full border-2 border-[#DA79B9]"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Passwords */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Main Container - Reversed Layout */}
+      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8">
+        
+        {/* Left Side - Registration Forms */}
+        <div className="lg:w-2/3">
+          {/* Staff Form */}
+          {role === "staff" && (
+            <div className="bg-white shadow-lg rounded-xl w-full p-8">
+              <h2 className="text-2xl font-bold mb-6">Register as Medical Staff</h2>
               {[
-                ["Password", pwd, setPwd],
-                ["Confirm Password", pwd2, setPwd2],
-              ].map(([lbl, val, setter]) => (
-                <div key={lbl}>
-                  <label className="block text-sm font-medium text-gray-800">{lbl}</label>
+                ["First Name", first, setFirst],
+                ["Last Name",  last,  setLast],
+                ["Email",      email, setEmail,    "email"],
+                ["Password",   pwd,   setPwd,      "password"],
+                ["Confirm Password", pwd2, setPwd2,"password"],
+                ["Consultant's Email", docEmail, setDocEmail, "email"],
+              ].map(([lbl, val, setter, type="text"]) => (
+                <div key={lbl} className="mb-4">
+                  <label className="block text-sm font-medium">{lbl}</label>
                   <input
-                    type="password"
+                    type={type}
                     value={val}
                     onChange={e => setter(e.target.value)}
                     placeholder={lbl}
-                    className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+                    className="mt-1 w-full rounded-xl border border-[#DA79B9] px-4 py-2"
                   />
                 </div>
               ))}
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleBackToLogin}
+                  className="flex-1 py-3 mt-6 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition-colors flex items-center justify-center space-x-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  <span>Back</span>
+                </button>
+                <button
+                  onClick={submit}
+                  className="flex-1 py-3 mt-6 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors"
+                >
+                  Sign Up
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-800">Phone Number</label>
-              <input
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="Enter phone"
-                className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
-              />
-            </div>
+          {/* Consultant Form */}
+          {role === "consultant" && (
+            <div className="bg-white shadow-lg rounded-xl w-full overflow-hidden">
+              <div className="md:flex">
+                {/* Left – Details */}
+                <div className="md:w-1/2 p-8 space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800">Register as Consultant</h2>
 
-            <hr className="border-gray-200"/>
-            <h3 className="text-lg font-semibold text-gray-800">Consultation Details</h3>
+                  {/* Identity */}
+                  {[
+                    ["Email",     email, setEmail, "email"],
+                    ["First Name", consultFirstName, setConsultFirstName],
+                    ["Last Name", consultLastName, setConsultLastName],
+                    ["Specialty", spec, setSpec],
+                  ].map(([lbl, val, setter, type="text"]) => (
+                    <div key={lbl}>
+                      <label className="block text-sm font-medium text-gray-800">{lbl}</label>
+                      <input
+                        type={type}
+                        value={val}
+                        onChange={e => setter(e.target.value)}
+                        placeholder={`Enter ${lbl}`}
+                        className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+                      />
+                    </div>
+                  ))}
 
-            {/* Days */}
-            <label className="block text-sm font-medium text-gray-800">Available Days</label>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {DAYS.map(d => (
-                <label key={d} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 text-[#DA79B9]"
-                    checked={days.includes(d)}
-                    onChange={() => toggle(d, days, setDays)}
-                  />
-                  <span className="text-sm">{d}</span>
-                </label>
-              ))}
-            </div>
-
-            {/* Hours */}
-            <label className="block text-sm font-medium text-gray-800">Consultation Hours</label>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {HOURS.map(h => (
-                <label key={h} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 text-[#DA79B9]"
-                    checked={hours.includes(h)}
-                    onChange={() => toggle(h, hours, setHours)}
-                  />
-                  <span className="text-sm">{h}</span>
-                </label>
-              ))}
-            </div>
-
-            {/* Platform */}
-            <label className="block text-sm font-medium text-gray-800">Platform</label>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {PLATFORMS.map(p => (
-                <label key={p} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 text-[#DA79B9]"
-                    checked={plat.includes(p)}
-                    onChange={() => toggle(p, plat, setPlat)}
-                  />
-                  <span className="text-sm">{p}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex space-x-4">
-              <button
-                onClick={handleBackToLogin}
-                className="flex-1 py-3 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition-colors flex items-center justify-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span>Back</span>
-              </button>
-              <button
-                onClick={submit}
-                className="flex-1 py-3 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors"
-              >
-                Sign Up
-              </button>
-            </div>
-          </div>
-
-          {/* Right – Map & Autocomplete */}
-          <div className="md:w-1/2 border-t md:border-t-0 md:border-l border-gray-200 p-8">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Select Birth Center Location
-            </h3>
-
-            {isLoaded ? (
-              <Autocomplete onLoad={onLoadAuto} onPlaceChanged={onPlaceChanged}>
-                <input
-                  type="text"
-                  placeholder="Search for birth center"
-                  className="w-full mb-4 rounded-xl border border-[#DA79B9] px-4 py-2"
-                />
-              </Autocomplete>
-            ) : (
-              <p>Loading map...</p>
-            )}
-
-            {isLoaded && (
-              <GoogleMap
-                mapContainerStyle={mapContainerStyle}
-                zoom={12}
-                center={centerMap}
-                onClick={handleMapClick}
-                options={{ styles: customMapStyles }}
-              >
-                {marker && (
-                  <>
-                    <Marker
-                      position={marker}
-                      draggable
-                      onDragEnd={handleMapClick}
+                  {/* Photo Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-800 mb-2">
+                      Profile Photo
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={onPhoto} 
+                      ref={fileInputRef}
+                      className="hidden"
                     />
-                    <InfoWindow
-                      position={marker}
-                      onCloseClick={() => setMarker(null)}
+                    <button
+                      type="button"
+                      onClick={handleFileButtonClick}
+                      className="w-full py-2 px-4 border-2 border-dashed border-[#DA79B9] rounded-xl text-[#DA79B9] hover:bg-[#F2C2DE] hover:border-solid transition-all duration-200 flex items-center justify-center space-x-2"
                     >
-                      <div>
-                        <p className="font-medium">{cName}</p>
-                        <p className="text-sm">{cAddr}</p>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>{photo ? 'Change Photo' : 'Choose Profile Photo'}</span>
+                    </button>
+                    {photo && (
+                      <p className="mt-2 text-sm text-green-600 text-center">
+                        ✓ {photo.name} selected
+                      </p>
+                    )}
+                    {preview && (
+                      <div className="mt-4 flex justify-center">
+                        <img 
+                          src={preview} 
+                          alt="preview" 
+                          className="w-24 h-24 object-cover rounded-full border-2 border-[#DA79B9]"
+                        />
                       </div>
-                    </InfoWindow>
-                  </>
-                )}
-              </GoogleMap>
-            )}
+                    )}
+                  </div>
 
-            {cName && (
-              <p className="mt-4 text-sm text-gray-700">
-                <strong>Selected Center:</strong> {cName}
-              </p>
-            )}
-            {cAddr && (
-              <p className="text-sm text-gray-700">
-                <strong>Address:</strong> {cAddr}
-              </p>
-            )}
+                  {/* Passwords */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      ["Password", pwd, setPwd],
+                      ["Confirm Password", pwd2, setPwd2],
+                    ].map(([lbl, val, setter]) => (
+                      <div key={lbl}>
+                        <label className="block text-sm font-medium text-gray-800">{lbl}</label>
+                        <input
+                          type="password"
+                          value={val}
+                          onChange={e => setter(e.target.value)}
+                          placeholder={lbl}
+                          className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-800">Phone Number</label>
+                    <input
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="Enter phone"
+                      className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+                    />
+                  </div>
+
+                  <hr className="border-gray-200"/>
+                  <h3 className="text-lg font-semibold text-gray-800">Consultation Details</h3>
+
+                  {/* Days */}
+                  <label className="block text-sm font-medium text-gray-800">Available Days</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {DAYS.map(d => (
+                      <label key={d} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-[#DA79B9]"
+                          checked={days.includes(d)}
+                          onChange={() => toggle(d, days, setDays)}
+                        />
+                        <span className="text-sm">{d}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Hours */}
+                  <label className="block text-sm font-medium text-gray-800">Consultation Hours</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {HOURS.map(h => (
+                      <label key={h} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-[#DA79B9]"
+                          checked={hours.includes(h)}
+                          onChange={() => toggle(h, hours, setHours)}
+                        />
+                        <span className="text-sm">{h}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Platform */}
+                  <label className="block text-sm font-medium text-gray-800">Platform</label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {PLATFORMS.map(p => (
+                      <label key={p} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-[#DA79B9]"
+                          checked={plat.includes(p)}
+                          onChange={() => toggle(p, plat, setPlat)}
+                        />
+                        <span className="text-sm">{p}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={handleBackToLogin}
+                      className="flex-1 py-3 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      <span>Back</span>
+                    </button>
+                    <button
+                      onClick={submit}
+                      className="flex-1 py-3 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors"
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right – Map & Autocomplete */}
+                <div className="md:w-1/2 border-t md:border-t-0 md:border-l border-gray-200 p-8">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Select Birth Center Location
+                  </h3>
+
+                  {isLoaded ? (
+                    <Autocomplete onLoad={onLoadAuto} onPlaceChanged={onPlaceChanged}>
+                      <input
+                        type="text"
+                        placeholder="Search for birth center"
+                        className="w-full mb-4 rounded-xl border border-[#DA79B9] px-4 py-2"
+                      />
+                    </Autocomplete>
+                  ) : (
+                    <p>Loading map...</p>
+                  )}
+
+                  {isLoaded && (
+                    <GoogleMap
+                      mapContainerStyle={mapContainerStyle}
+                      zoom={12}
+                      center={centerMap}
+                      onClick={handleMapClick}
+                      options={{ styles: customMapStyles }}
+                    >
+                      {marker && (
+                        <>
+                          <Marker
+                            position={marker}
+                            draggable
+                            onDragEnd={handleMapClick}
+                          />
+                          <InfoWindow
+                            position={marker}
+                            onCloseClick={() => setMarker(null)}
+                          >
+                            <div>
+                              <p className="font-medium">{cName}</p>
+                              <p className="text-sm">{cAddr}</p>
+                            </div>
+                          </InfoWindow>
+                        </>
+                      )}
+                    </GoogleMap>
+                  )}
+
+                  {cName && (
+                    <p className="mt-4 text-sm text-gray-700">
+                      <strong>Selected Center:</strong> {cName}
+                    </p>
+                  )}
+                  {cAddr && (
+                    <p className="text-sm text-gray-700">
+                      <strong>Address:</strong> {cAddr}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Side - Role Selector */}
+        <div className="lg:w-1/3">
+          <div className="bg-white shadow-lg rounded-xl w-full p-6 sticky top-4">
+            <h2 className="text-xl font-semibold mb-4">Register as</h2>
+            <div className="flex flex-col space-y-4">
+              {["consultant","staff"].map(r => (
+                <label key={r} className="flex items-center space-x-3 p-3 rounded-lg border-2 border-gray-200 hover:border-[#DA79B9] transition-colors cursor-pointer">
+                  <input
+                    type="radio"
+                    className="h-5 w-5 text-[#DA79B9]"
+                    checked={role === r}
+                    onChange={() => setRole(r)}
+                  />
+                  <span className="text-gray-800 font-medium">
+                    {r==="consultant"?"Consultant":"Medical Staff"}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

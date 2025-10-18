@@ -41,7 +41,7 @@ const Dashboard = () => {
     /* Pending appointments */
     const unsubReq = onSnapshot(
       query(
-        collection(db, "appointmentRequests"),
+        collection(db, "bookings"),
         where("consultantId", "==", doctor.uid),
         where("status", "==", "pending")
       ),
@@ -90,24 +90,7 @@ const Dashboard = () => {
 
     setupMessagesListener();
 
-    /* Recent activity - last 5 appointments */
-    const unsubRecentActivity = onSnapshot(
-      query(
-        collection(db, "appointmentRequests"),
-        where("consultantId", "==", doctor.uid),
-        orderBy("createdAt", "desc"),
-        limit(5)
-      ),
-      (snap) => {
-        const activities = snap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          type: 'appointment'
-        }));
-        setRecentActivity(activities);
-      }
-    );
-    unsubscribeFunctions.push(unsubRecentActivity);
+  
 
     return () => {
       unsubscribeFunctions.forEach(unsub => unsub());
@@ -128,7 +111,7 @@ const Dashboard = () => {
       // Re-fetch pending appointments
       const pendingSnap = await getDocs(
         query(
-          collection(db, "appointmentRequests"),
+          collection(db, "bookings"),
           where("consultantId", "==", doctor.uid),
           where("status", "==", "pending")
         )
