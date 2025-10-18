@@ -92,7 +92,7 @@ const Login = () => {
 
         {/* footer links */}
         <div className="flex flex-col items-center gap-3 mt-6">
-          <span className="underline text-[#DA79B9]">Need Help?</span>
+         
           <span className="text-gray-800"> 
             Don't have an account?{" "}
             <Link to="/register" className="underline text-[#DA79B9]">

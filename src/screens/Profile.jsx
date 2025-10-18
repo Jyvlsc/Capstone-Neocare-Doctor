@@ -71,6 +71,14 @@ const Profile = () => {
   const toggle = (val, arr, setArr) =>
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setNewPhotoFile(file);
+      setPreviewImg(URL.createObjectURL(file));
+    }
+  };
+
   const saveProfile = async()=>{
     try{
       let pic = photoUrl;
@@ -162,24 +170,42 @@ const Profile = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-800">Profile Photo</label>
-                <input
-                  type="file" accept="image/*"
-                  onChange={e => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      setNewPhotoFile(f);
-                      setPreviewImg(URL.createObjectURL(f));
-                    }
-                  }}
-                />
-                {(previewImg || photoUrl) && (
-                  <img
-                    src={previewImg || photoUrl}
-                    alt="Preview"
-                    className="mt-2 w-24 h-24 object-cover rounded-full border"
-                  />
-                )}
+                <label className="block text-sm font-medium text-gray-800 mb-2">Profile Photo</label>
+                
+                {/* Custom file upload button */}
+                <div className="flex flex-col items-start space-y-3">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="profile-photo-upload"
+                    />
+                    <div className="px-4 py-2 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors font-medium">
+                      Choose Profile Picture
+                    </div>
+                  </label>
+                  
+                  {/* File name display */}
+                  {newPhotoFile && (
+                    <p className="text-sm text-gray-600">
+                      Selected: {newPhotoFile.name}
+                    </p>
+                  )}
+                  
+                  {/* Image preview */}
+                  {(previewImg || photoUrl) && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-800 mb-2">Preview:</p>
+                      <img
+                        src={previewImg || photoUrl}
+                        alt="Profile Preview"
+                        className="w-24 h-24 object-cover rounded-full border-2 border-[#DA79B9]"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
