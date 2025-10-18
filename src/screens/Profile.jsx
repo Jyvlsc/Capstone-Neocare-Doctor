@@ -10,7 +10,7 @@ import {
   where,
   getDocs
 } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { auth, db } from "../configs/firebase-config";
 import Header from "../components/Header";
 import Logo from "../assets/Logo.png";
@@ -29,6 +29,7 @@ const Profile = () => {
 
   const [docId, setDocId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [email, setEmail]                 = useState("");
   const [name, setName]                   = useState("");
@@ -57,7 +58,7 @@ const Profile = () => {
       setName(d.name || "");
       setSpecialty(d.specialty || "");
       setContactInfo(d.contactInfo || "");
-      setHospitalAddress(d.birthCenterAddress || "");  // ← load from birthCenterAddress
+      setHospitalAddress(d.birthCenterAddress || "");
       setAvailableDays(d.availableDays || []);
       setConsultationHours(d.consultationHours || []);
       setPlatform(d.platform || []);
@@ -74,20 +75,85 @@ const Profile = () => {
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (JPEG, PNG, etc.)');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Please select an image smaller than 5MB');
+        return;
+      }
+      
       setNewPhotoFile(file);
       setPreviewImg(URL.createObjectURL(file));
     }
   };
 
-  const saveProfile = async()=>{
-    try{
+  const deleteOldPhoto = async (oldPhotoUrl) => {
+    if (!oldPhotoUrl) return;
+    
+    try {
+      const storage = getStorage();
+      // Extract the path from the URL or use the default path
+      let photoRef;
+      if (oldPhotoUrl.includes('profilePhotos/')) {
+        // If the URL contains the path, extract it
+        const matches = oldPhotoUrl.match(/profilePhotos%2F([^?]+)/);
+        if (matches && matches[1]) {
+          photoRef = ref(storage, `profilePhotos/${matches[1]}`);
+        } else {
+          // Fallback: use the user ID
+          photoRef = ref(storage, `profilePhotos/${user.uid}`);
+        }
+      } else {
+        // Default path
+        photoRef = ref(storage, `profilePhotos/${user.uid}`);
+      }
+      
+      await deleteObject(photoRef);
+      console.log('Old profile photo deleted successfully');
+    } catch (error) {
+      // If the file doesn't exist, we can ignore the error
+      if (error.code !== 'storage/object-not-found') {
+        console.error('Error deleting old photo:', error);
+      }
+    }
+  };
+
+  const saveProfile = async() => {
+    if (saving) return;
+    
+    setSaving(true);
+    try {
       let pic = photoUrl;
-      if(newPhotoFile){
-        const st = getStorage();
-        const snap = await uploadBytes(ref(st,`profilePhotos/${user.uid}`), newPhotoFile);
-        pic = await getDownloadURL(snap.ref);
+      const storage = getStorage();
+      
+      if (newPhotoFile) {
+        // Delete old photo if it exists and is not the default one
+        if (photoUrl && !photoUrl.includes('default-profile')) {
+          await deleteOldPhoto(photoUrl);
+        }
+        
+        // Upload new photo
+        const photoRef = ref(storage, `profilePhotos/${user.uid}_${Date.now()}`);
+        const snapshot = await uploadBytes(photoRef, newPhotoFile);
+        pic = await getDownloadURL(snapshot.ref);
+        
+        // Update local state
+        setPhotoUrl(pic);
+        setNewPhotoFile(null);
+        
+        // Clean up the object URL
+        if (previewImg) {
+          URL.revokeObjectURL(previewImg);
+          setPreviewImg(null);
+        }
       }
 
+      // Find clinic ID based on hospital address
       let clinicId;
       const q = query(collection(db,"users"),where("role","==","clinic"));
       const ss = await getDocs(q);
@@ -97,22 +163,55 @@ const Profile = () => {
         }
       });
 
+      // Update Firestore document
       await updateDoc(doc(db,"consultants",docId),{
         name,
         specialty,
         contactInfo,
-        birthCenterAddress: hospitalAddress,  // ← save to birthCenterAddress
+        birthCenterAddress: hospitalAddress,
         availableDays,
         consultationHours,
         platform,
-        profilePhoto: pic,
+        profilePhoto: pic, // This saves the URL in Firestore
         unavailableNote,
+        updatedAt: new Date(),
         ...(clinicId && { clinicId })
       });
-      alert("Profile updated!");
-    } catch(e){
-      console.error(e);
-      alert("Update failed.");
+      
+      alert("Profile updated successfully!");
+    } catch (e) {
+      console.error("Update failed:", e);
+      alert("Update failed. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeProfilePhoto = async () => {
+    if (!photoUrl) return;
+    
+    try {
+      // Delete from storage
+      await deleteOldPhoto(photoUrl);
+      
+      // Update Firestore
+      await updateDoc(doc(db,"consultants",docId),{
+        profilePhoto: "",
+        updatedAt: new Date()
+      });
+      
+      // Update local state
+      setPhotoUrl("");
+      setNewPhotoFile(null);
+      if (previewImg) {
+        URL.revokeObjectURL(previewImg);
+        setPreviewImg(null);
+      }
+      
+      alert("Profile photo removed successfully!");
+    } catch (error) {
+      console.error("Error removing profile photo:", error);
+      alert("Failed to remove profile photo. Please try again.");
     }
   };
 
@@ -174,18 +273,31 @@ const Profile = () => {
                 
                 {/* Custom file upload button */}
                 <div className="flex flex-col items-start space-y-3">
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      id="profile-photo-upload"
-                    />
-                    <div className="px-4 py-2 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors font-medium">
-                      Choose Profile Picture
-                    </div>
-                  </label>
+                  <div className="flex gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        id="profile-photo-upload"
+                      />
+                      <div className="px-4 py-2 bg-[#DA79B9] text-white rounded-xl hover:bg-[#C064A0] transition-colors font-medium">
+                        Choose Profile Picture
+                      </div>
+                    </label>
+                    
+                    {/* Remove photo button */}
+                    {(photoUrl || newPhotoFile) && (
+                      <button
+                        type="button"
+                        onClick={removeProfilePhoto}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
+                      >
+                        Remove Photo
+                      </button>
+                    )}
+                  </div>
                   
                   {/* File name display */}
                   {newPhotoFile && (
@@ -286,9 +398,12 @@ const Profile = () => {
 
             <button
               onClick={saveProfile}
-              className="w-full py-3 bg-[#DA79B9] text-white font-medium text-xl font-mono rounded-xl hover:bg-[#C064A0] transition-colors"
+              disabled={saving}
+              className={`w-full py-3 bg-[#DA79B9] text-white font-medium text-xl font-mono rounded-xl transition-colors ${
+                saving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#C064A0]'
+              }`}
             >
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
 

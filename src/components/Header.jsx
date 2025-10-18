@@ -21,7 +21,9 @@ const Header = () => {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [consultantData, setConsultantData] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [imageError, setImageError] = useState(false);
 
   // Update time every minute
   useEffect(() => {
@@ -32,17 +34,28 @@ const Header = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Load user role and data
+  // Load user role and data from both users and consultants collections
   useEffect(() => {
     const u = auth.currentUser;
     if (!u) return;
     
+    // Fetch from users collection
     getDoc(doc(db, "users", u.uid))
       .then((snap) => {
         if (snap.exists()) {
           const data = snap.data();
           setRole(data.role);
           setUserData(data);
+        }
+      })
+      .catch(console.error);
+
+    // Also try to fetch from consultants collection
+    getDoc(doc(db, "consultants", u.uid))
+      .then((snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setConsultantData(data);
         }
       })
       .catch(console.error);
@@ -81,6 +94,23 @@ const Header = () => {
     });
   };
 
+  // Get profile photo URL - priority: consultantData > userData
+  const getProfilePhoto = () => {
+    return consultantData?.profilePhoto || userData?.profilePhoto;
+  };
+
+  // Get display name - priority: consultantData > userData
+  const getDisplayName = () => {
+    return consultantData?.name || consultantData?.displayName || userData?.name || userData?.displayName || auth.currentUser?.email?.split('@')[0];
+  };
+
+  // Get first initial for avatar fallback
+  const getFirstInitial = () => {
+    const name = consultantData?.name || consultantData?.displayName || userData?.name || userData?.displayName;
+    if (name) return name[0].toUpperCase();
+    return auth.currentUser?.email?.[0]?.toUpperCase() || "U";
+  };
+
   return (
     <header className="fixed top-0 left-0 w-full h-16 flex items-center px-6 z-50
                        bg-white/80 backdrop-blur-lg border-b border-[#DA79B9]/20 shadow-lg">
@@ -92,7 +122,6 @@ const Header = () => {
           <span className="text-2xl font-mono font-black text-[#DA79B9] leading-6">
             NeoCare
           </span>
-        
         </div>
       </Link>
 
@@ -158,18 +187,28 @@ const Header = () => {
         {/* User Info */}
         <div className="flex flex-col items-end mr-4">
           <span className="font-mono text-sm font-semibold text-gray-900 truncate max-w-[180px]">
-            {userData?.name|| auth.currentUser?.name}
+            {getDisplayName()}
           </span>
           <span className="font-mono text-xs text-gray-500 capitalize">
-            {role || "User"} • {auth.currentUser?.email || "Guest"}
+            {role} • {auth.currentUser?.email}
           </span>
         </div>
 
-        {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#DA79B9] to-pink-400 flex items-center justify-center shadow-sm">
-          <span className="text-white text-xs font-bold">
-            {(userData?.displayName?.[0] || auth.currentUser?.email?.[0] || "U").toUpperCase()}
-          </span>
+        {/* User Avatar with Profile Photo from consultants database */}
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#DA79B9] to-pink-400 flex items-center justify-center shadow-sm overflow-hidden">
+          {getProfilePhoto() && !imageError ? (
+            <img 
+              src={getProfilePhoto()} 
+              alt="Profile" 
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+              onLoad={() => setImageError(false)}
+            />
+          ) : (
+            <span className="text-white text-xs font-bold">
+              {getFirstInitial()}
+            </span>
+          )}
         </div>
 
         {/* Logout Button */}
@@ -184,18 +223,28 @@ const Header = () => {
         </button>
       </div>
 
-      {/* Mobile user info */}
+      {/* Mobile menu */}
       {open && (
         <div className="md:hidden absolute top-16 left-0 w-full bg-white/95 backdrop-blur-lg border-b border-gray-200 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#DA79B9] to-pink-400 flex items-center justify-center shadow-sm">
-              <span className="text-white text-sm font-bold">
-                {(userData?.displayName?.[0] || auth.currentUser?.email?.[0] || "U").toUpperCase()}
-              </span>
+            {/* Mobile User Avatar with Profile Photo from consultants database */}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#DA79B9] to-pink-400 flex items-center justify-center shadow-sm overflow-hidden">
+              {getProfilePhoto() && !imageError ? (
+                <img 
+                  src={getProfilePhoto()} 
+                  alt="Profile" 
+                  className="w-full h-full object-cover"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <span className="text-white text-sm font-bold">
+                  {getFirstInitial()}
+                </span>
+              )}
             </div>
             <div className="flex flex-col">
               <span className="font-mono text-sm font-semibold text-gray-900">
-                {userData?.displayName || auth.currentUser?.email?.split('@')[0] || "User"}
+                {getDisplayName()}
               </span>
               <span className="font-mono text-xs text-gray-500 capitalize">
                 {role || "User"}

@@ -7,7 +7,9 @@ import {
   onSnapshot,
   doc,
   getDoc,
-  addDoc
+  addDoc,
+  updateDoc,
+  serverTimestamp
 } from "firebase/firestore";
 import { db, auth } from "../configs/firebase-config";
 import Header from "../components/Header";
@@ -70,7 +72,7 @@ export default function ChatPage() {
     return () => unsubAuth();
   }, []);
 
-  // ─── 2) Subscribe to each convo’s last message ───
+  // ─── 2) Subscribe to each convo's last message ───
   useEffect(() => {
     const unsubs = conversations.map(c => {
       const q = query(
@@ -84,9 +86,10 @@ export default function ChatPage() {
           [c.id]: last
             ? {
                 text: last.text,
-                createdAt: last.createdAt.toDate()    // ← convert to JS Date here
+                createdAt: last.createdAt.toDate(),
+                userId: last.user._id // Track who sent the last message
               }
-            : { text: "No messages yet", createdAt: null }
+            : { text: "No messages yet", createdAt: null, userId: null }
         }));
       });
     });
@@ -102,6 +105,9 @@ export default function ChatPage() {
     const selected = conversations.find(c => c.id === selectedChatId);
     if (selected) setChatInfo(selected);
 
+    // Mark chat as seen when selected
+    markChatAsSeen(selectedChatId);
+
     // listen to all messages in this chat
     const q = query(
       collection(db, "chats", selectedChatId, "messages"),
@@ -111,19 +117,42 @@ export default function ChatPage() {
       const msgs = snap.docs.map(d => ({
         id: d.id,
         ...d.data(),
-        createdAt: d.data().createdAt?.toDate()  // ← also convert here
+        createdAt: d.data().createdAt?.toDate()
       }));
       setMessages(msgs);
       setLoadingMessages(false);
+      
       // scroll to bottom
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
     return () => unsub();
   }, [selectedChatId, conversations]);
 
+  // Function to mark chat as seen by doctor
+  const markChatAsSeen = async (chatId) => {
+    if (!chatId || !auth.currentUser) return;
+
+    try {
+      await updateDoc(doc(db, "chats", chatId), {
+        seenByDoctor: true,
+        lastSeenByDoctor: serverTimestamp()
+      });
+      console.log("Chat marked as seen");
+    } catch (error) {
+      console.error("Error marking chat as seen:", error);
+    }
+  };
+
   const sendMessage = async e => {
     e.preventDefault();
     if (!newMessage.trim()) return;
+    
+    // When doctor sends a message, also mark chat as seen
+    await updateDoc(doc(db, "chats", selectedChatId), {
+      seenByDoctor: true,
+      lastSeenByDoctor: serverTimestamp()
+    });
+    
     await addDoc(collection(db, "chats", selectedChatId, "messages"), {
       text: newMessage,
       user: {
@@ -133,6 +162,27 @@ export default function ChatPage() {
       createdAt: new Date()
     });
     setNewMessage("");
+  };
+
+  // Function to check if a chat has unread messages
+  const hasUnreadMessages = (chat) => {
+    // If chat is already seen by doctor, no unread messages
+    if (chat.seenByDoctor) return false;
+    
+    const lastMessage = lastMessages[chat.id];
+    // If there's a last message and it's from the parent, it's unread
+    if (lastMessage && lastMessage.userId && lastMessage.userId !== auth.currentUser?.uid) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Function to get unread count (showing badge)
+  const getUnreadIndicator = (chat) => {
+    return hasUnreadMessages(chat) ? (
+      <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 flex-shrink-0"></span>
+    ) : null;
   };
 
   return (
@@ -149,6 +199,8 @@ export default function ChatPage() {
             conversations.map(c => {
               const last = lastMessages[c.id];
               const isActive = c.id === selectedChatId;
+              const hasUnread = hasUnreadMessages(c);
+              
               return (
                 <button
                   key={c.id}
@@ -157,21 +209,40 @@ export default function ChatPage() {
                     isActive
                       ? "bg-white border-[#DA79B9]"
                       : "border-transparent hover:bg-white hover:border-[#DA79B9]"
-                  } transition`}
+                  } transition relative`}
                 >
-                  <div>
-                    <div className="font-semibold text-gray-900">
-                      {c.parentName}
-                    </div>
-                    <div className="text-sm text-gray-600 truncate max-w-[180px]">
-                      {last?.text}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Unread indicator */}
+                    {hasUnread && (
+                      <div className="flex-shrink-0 mt-1.5">
+                        <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 block"></span>
+                      </div>
+                    )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-gray-900 flex items-center gap-2">
+                        {c.parentName}
+                      </div>
+                      <div className={`text-sm truncate ${
+                        hasUnread ? "text-gray-900 font-medium" : "text-gray-600"
+                      }`}>
+                        {last?.text}
+                      </div>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500 whitespace-nowrap">
-                    {last?.createdAt?.toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit"
-                    })}
+                  
+                  <div className="text-xs text-gray-500 whitespace-nowrap ml-2 flex flex-col items-end">
+                    <span>
+                      {last?.createdAt?.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })}
+                    </span>
+                    {hasUnread && (
+                      <span className="text-red-500 font-medium text-xs mt-1">
+                        New
+                      </span>
+                    )}
                   </div>
                 </button>
               );
@@ -188,16 +259,25 @@ export default function ChatPage() {
           ) : (
             <>
               {/* Chat header */}
-              <div className="bg-white shadow p-4 border-b-4 border-[#DA79B9]">
-                <button
-                  onClick={() => setSelectedChatId(null)}
-                  className="text-[#DA79B9] hover:text-[#C064A0] mr-4"
-                >
-                  ← Back
-                </button>
-                <span className="font-semibold text-lg">
-                  {chatInfo?.parentName}
-                </span>
+              <div className="bg-white shadow p-4 border-b-4 border-[#DA79B9] flex items-center justify-between">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setSelectedChatId(null)}
+                    className="text-[#DA79B9] hover:text-[#C064A0] mr-4"
+                  >
+                    ← Back
+                  </button>
+                  <span className="font-semibold text-lg">
+                    {chatInfo?.parentName}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {chatInfo?.seenByDoctor ? (
+                    <span className="text-green-600">✓ Read</span>
+                  ) : (
+                    <span className="text-orange-600">● Unread</span>
+                  )}
+                </div>
               </div>
 
               {/* Message list */}

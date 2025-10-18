@@ -14,7 +14,6 @@ const Dashboard = () => {
   const [patients, setPatients] = useState(0);
   const [pendingApt, setPendingApt] = useState(0);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
-  const [recentActivity, setRecentActivity] = useState([]);
   const [stats, setStats] = useState({
     patients: 0,
     pendingApt: 0,
@@ -70,7 +69,7 @@ const Dashboard = () => {
         );
 
         const unsubMessages = onSnapshot(messagesQuery, (snap) => {
-          // Recalculate total unread messages
+  
           let totalUnread = 0;
           chatIds.forEach(async (id) => {
             const msgSnap = await getDocs(
@@ -138,7 +137,7 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  /* Card component with hover effects */
+ 
   const StatCard = ({ title, value, subtitle, onClick }) => (
     <div 
       className={`bg-white shadow-lg rounded-2xl border-2 border-[#DA79B9] p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer ${
@@ -152,21 +151,8 @@ const Dashboard = () => {
     </div>
   );
 
-  /* Activity item component */
-  const ActivityItem = ({ activity }) => (
-    <div className="flex items-center p-3 border-b border-gray-200 last:border-b-0">
-      <div className="w-3 h-3 bg-[#DA79B9] rounded-full mr-3"></div>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-gray-900">
-          {activity.clientName || 'New Appointment Request'}
-        </p>
-        <p className="text-xs text-gray-500">
-          {activity.type === 'appointment' && 'Appointment Request'}
-          {activity.createdAt?.toDate?.().toLocaleDateString()}
-        </p>
-      </div>
-    </div>
-  );
+  
+  
 
   if (loading) {
     return (
@@ -194,10 +180,7 @@ const Dashboard = () => {
               <h1 className="text-4xl font-bold text-gray-900 mb-2">
                 Dashboard Overview
               </h1>
-              <p className="text-gray-700 max-w-md">
-                Share your parenting aspirations—we're here to support your family's unique path.
-              </p>
-            </div>
+              </div>
             <button
               onClick={refreshDashboard}
               className="bg-[#DA79B9] text-white px-6 py-2 rounded-lg hover:bg-[#c43d8b] transition-colors duration-300"
