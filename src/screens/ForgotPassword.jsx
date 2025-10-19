@@ -23,7 +23,7 @@ const ForgotPassword = () => {
       const consultantsRef = collection(db, "consultants");
       const q = query(consultantsRef, where("email", "==", email.toLowerCase().trim()));
       const querySnapshot = await getDocs(q);
-      return !querySnapshot.empty; // Returns true if email exists, false if not
+      return !querySnapshot.empty; 
     } catch (err) {
       console.error("Error checking email in Firestore:", err);
       throw new Error("Unable to verify email. Please try again.");
