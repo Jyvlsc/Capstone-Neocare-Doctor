@@ -194,7 +194,7 @@ const Header = () => {
           </span>
         </div>
 
-        {/* User Avatar with Profile Photo from consultants database */}
+       
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#DA79B9] to-pink-400 flex items-center justify-center shadow-sm overflow-hidden">
           {getProfilePhoto() && !imageError ? (
             <img 
@@ -223,7 +223,7 @@ const Header = () => {
         </button>
       </div>
 
-      {/* Mobile menu */}
+    
       {open && (
         <div className="md:hidden absolute top-16 left-0 w-full bg-white/95 backdrop-blur-lg border-b border-gray-200 p-4">
           <div className="flex items-center gap-3 mb-3">

@@ -8,6 +8,8 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import { db, auth } from "../configs/firebase-config";
 import Header from "../components/Header";
@@ -119,10 +121,22 @@ const Requests = () => {
   const accept = async (id) => {
     setBusyId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/${id}/accept`, {
-        method: "POST",
+      // Update the booking status to 'accepted' in Firestore
+      const bookingRef = doc(db, "bookings", id);
+      await updateDoc(bookingRef, {
+        status: "accepted",
+        updatedAt: new Date()
       });
-      if (!res.ok) throw new Error(await res.text());
+
+    
+      const bookingDoc = await getDoc(bookingRef);
+      if (bookingDoc.exists()) {
+        const bookingData = bookingDoc.data();
+ 
+        
+        console.log("Booking accepted and saved:", id);
+      }
+
       alert("Booking accepted! Client added.");
     } catch (e) {
       console.error("Accept error:", e);
@@ -136,10 +150,13 @@ const Requests = () => {
     if (!window.confirm("Decline this booking?")) return;
     setBusyId(id);
     try {
-      const res = await fetch(`${API_BASE}/api/bookings/${id}/decline`, {
-        method: "POST",
+      
+      const bookingRef = doc(db, "bookings", id);
+      await updateDoc(bookingRef, {
+        status: "declined",
+        updatedAt: new Date()
       });
-      if (!res.ok) throw new Error(await res.text());
+      
       alert("Booking declined.");
     } catch (e) {
       console.error("Decline error:", e);
