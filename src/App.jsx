@@ -20,6 +20,8 @@ import ChatComponent from "./components/ChatComponent";
 import AddConsultationNote from "./screens/AddConsultationNote";
 import ClientDetails from "./screens/ClientDetails";
 import Profile from "./screens/Profile";
+import ForgotPassword from "./screens/ForgotPassword.jsx"; 
+
 
 /* firebase */
 import { auth } from "./configs/firebase-config";
@@ -50,6 +52,7 @@ function App() {
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected routes */}
         <Route path="/landing" element={<PrivateRoute><LandingPage /></PrivateRoute>} />

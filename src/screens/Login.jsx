@@ -195,8 +195,8 @@ const Login = () => {
 
             {/* Forgot Password */}
             <div className="w-full flex justify-end mt-2">
-              <Link className="font-medium text-sm font-mono underline text-[#DA79B9] hover:text-[#C064A0] cursor-pointer">
-                Forgot Password?
+              <Link to="/forgot-password" className="font-medium text-sm font-mono underline text-[#DA79B9] hover:text-[#C064A0] cursor-pointer">
+              Forgot Password?
               </Link>
             </div>
 
