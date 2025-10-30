@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
 
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null); // 👈 new ref for scroll container
 
   // ─── 1) Load conversations + lastMessages ───
   useEffect(() => {
@@ -87,7 +88,7 @@ export default function ChatPage() {
             ? {
                 text: last.text,
                 createdAt: last.createdAt.toDate(),
-                userId: last.user._id // Track who sent the last message
+                userId: last.user._id
               }
             : { text: "No messages yet", createdAt: null, userId: null }
         }));
@@ -101,14 +102,11 @@ export default function ChatPage() {
     if (!selectedChatId) return;
     setLoadingMessages(true);
 
-    // grab parentName from conversations array
     const selected = conversations.find(c => c.id === selectedChatId);
     if (selected) setChatInfo(selected);
 
-    // Mark chat as seen when selected
     markChatAsSeen(selectedChatId);
 
-    // listen to all messages in this chat
     const q = query(
       collection(db, "chats", selectedChatId, "messages"),
       orderBy("createdAt", "asc")
@@ -121,17 +119,27 @@ export default function ChatPage() {
       }));
       setMessages(msgs);
       setLoadingMessages(false);
-      
-      // scroll to bottom
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
+
     return () => unsub();
   }, [selectedChatId, conversations]);
 
-  // Function to mark chat as seen by doctor
-  const markChatAsSeen = async (chatId) => {
-    if (!chatId || !auth.currentUser) return;
+  // ─── 4) Auto-scroll logic ───
+  useEffect(() => {
+    if (!chatContainerRef.current || !messagesEndRef.current) return;
 
+    const container = chatContainerRef.current;
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+    if (isNearBottom) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]); // runs every time messages update
+
+  // ─── Mark chat as seen ───
+  const markChatAsSeen = async chatId => {
+    if (!chatId || !auth.currentUser) return;
     try {
       await updateDoc(doc(db, "chats", chatId), {
         seenByDoctor: true,
@@ -146,13 +154,12 @@ export default function ChatPage() {
   const sendMessage = async e => {
     e.preventDefault();
     if (!newMessage.trim()) return;
-    
-    // When doctor sends a message, also mark chat as seen
+
     await updateDoc(doc(db, "chats", selectedChatId), {
       seenByDoctor: true,
       lastSeenByDoctor: serverTimestamp()
     });
-    
+
     await addDoc(collection(db, "chats", selectedChatId, "messages"), {
       text: newMessage,
       user: {
@@ -164,33 +171,26 @@ export default function ChatPage() {
     setNewMessage("");
   };
 
-  // Function to check if a chat has unread messages
-  const hasUnreadMessages = (chat) => {
-    // If chat is already seen by doctor, no unread messages
+  const hasUnreadMessages = chat => {
     if (chat.seenByDoctor) return false;
-    
     const lastMessage = lastMessages[chat.id];
-    // If there's a last message and it's from the parent, it's unread
     if (lastMessage && lastMessage.userId && lastMessage.userId !== auth.currentUser?.uid) {
       return true;
     }
-    
     return false;
   };
 
-  // Function to get unread count (showing badge)
-  const getUnreadIndicator = (chat) => {
-    return hasUnreadMessages(chat) ? (
+  const getUnreadIndicator = chat =>
+    hasUnreadMessages(chat) ? (
       <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 flex-shrink-0"></span>
     ) : null;
-  };
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-white to-[#F2C2DE] flex flex-col">
       <Header />
 
       <main className="flex flex-1 pt-4">
-        {/* ─── LEFT PANE: Conversations List ─── */}
+        {/* LEFT PANE */}
         <aside className="w-1/3 border-r border-gray-200 overflow-y-auto">
           <h2 className="px-6 py-4 text-2xl font-bold">Messages</h2>
           {loadingConvos ? (
@@ -200,7 +200,7 @@ export default function ChatPage() {
               const last = lastMessages[c.id];
               const isActive = c.id === selectedChatId;
               const hasUnread = hasUnreadMessages(c);
-              
+
               return (
                 <button
                   key={c.id}
@@ -212,25 +212,25 @@ export default function ChatPage() {
                   } transition relative`}
                 >
                   <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {/* Unread indicator */}
                     {hasUnread && (
                       <div className="flex-shrink-0 mt-1.5">
                         <span className="bg-red-500 text-white text-xs rounded-full w-2 h-2 block"></span>
                       </div>
                     )}
-                    
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-gray-900 flex items-center gap-2">
                         {c.parentName}
                       </div>
-                      <div className={`text-sm truncate ${
-                        hasUnread ? "text-gray-900 font-medium" : "text-gray-600"
-                      }`}>
+                      <div
+                        className={`text-sm truncate ${
+                          hasUnread ? "text-gray-900 font-medium" : "text-gray-600"
+                        }`}
+                      >
                         {last?.text}
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="text-xs text-gray-500 whitespace-nowrap ml-2 flex flex-col items-end">
                     <span>
                       {last?.createdAt?.toLocaleTimeString([], {
@@ -239,9 +239,7 @@ export default function ChatPage() {
                       })}
                     </span>
                     {hasUnread && (
-                      <span className="text-red-500 font-medium text-xs mt-1">
-                        New
-                      </span>
+                      <span className="text-red-500 font-medium text-xs mt-1">New</span>
                     )}
                   </div>
                 </button>
@@ -250,7 +248,7 @@ export default function ChatPage() {
           )}
         </aside>
 
-        {/* ─── RIGHT PANE: Active Chat ─── */}
+        {/* RIGHT PANE */}
         <section className="flex-1 flex flex-col">
           {!selectedChatId ? (
             <div className="flex-1 flex items-center justify-center text-gray-600">
@@ -267,9 +265,7 @@ export default function ChatPage() {
                   >
                     ← Back
                   </button>
-                  <span className="font-semibold text-lg">
-                    {chatInfo?.parentName}
-                  </span>
+                  <span className="font-semibold text-lg">{chatInfo?.parentName}</span>
                 </div>
                 <div className="text-sm text-gray-500">
                   {chatInfo?.seenByDoctor ? (
@@ -281,19 +277,22 @@ export default function ChatPage() {
               </div>
 
               {/* Message list */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div
+                ref={chatContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-[#DA79B9] scrollbar-track-gray-100 hover:scrollbar-thumb-[#C064A0] scrollbar-thumb-rounded-full scrollbar-track-rounded-full"
+                style={{
+                  scrollBehavior: "smooth",
+                  maxHeight: "calc(100vh - 220px)",
+                  scrollbarWidth: "thin"
+                }}
+              >
                 {loadingMessages ? (
                   <div className="text-gray-600">Loading chat…</div>
                 ) : (
                   messages.map(m => {
                     const isMe = m.user._id === auth.currentUser.uid;
                     return (
-                      <div
-                        key={m.id}
-                        className={`flex ${
-                          isMe ? "justify-end" : "justify-start"
-                        }`}
-                      >
+                      <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                         <div
                           className={`rounded-lg p-3 max-w-[70%] ${
                             isMe
@@ -320,7 +319,7 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input area */}
+              {/* Input */}
               <div className="bg-white border-t-4 border-[#DA79B9] p-4">
                 <form onSubmit={sendMessage} className="flex gap-2">
                   <input

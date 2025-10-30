@@ -1,8 +1,11 @@
 /* src/screens/Dashboard.jsx */
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  collection, query, where, onSnapshot, getDocs,
-  orderBy, limit
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDocs,
 } from "firebase/firestore";
 import { db, auth } from "../configs/firebase-config";
 import { onAuthStateChanged } from "firebase/auth";
@@ -16,28 +19,22 @@ const Dashboard = () => {
   const [unreadMsgs, setUnreadMsgs] = useState(0);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  /* ─── Listen for auth state changes ─── */
+  // ─── Handle Auth ───
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
-      setLoading(true); // Reset loading when user changes
-      
-      if (user) {
-        console.log("User changed to:", user.uid);
-        // Data fetching will be triggered by the currentUser dependency in other useEffect
-      } else {
-        console.log("No user logged in");
+      setLoading(true);
+      if (!user) {
         setPatients(0);
         setPendingApt(0);
         setUnreadMsgs(0);
         setLoading(false);
       }
     });
-
     return () => unsubscribeAuth();
   }, []);
 
-  /* ─── Fetch counts with real-time updates ─── */
+  // ─── Firestore Real-Time Dashboard ───
   useEffect(() => {
     if (!currentUser) {
       setPatients(0);
@@ -47,125 +44,96 @@ const Dashboard = () => {
       return;
     }
 
-    console.log("Setting up listeners for user:", currentUser.uid);
     const unsubscribeFunctions = [];
 
-    /* Active patients = clients where consultantId == currentUser.uid */
+    // Real-time patients
     const unsubClients = onSnapshot(
       query(collection(db, "clients"), where("consultantId", "==", currentUser.uid)),
-      (snap) => {
-        setPatients(snap.size);
-      },
-      (error) => {
-        console.error("Error fetching patients:", error);
-      }
+      (snap) => setPatients(snap.size),
+      (error) => console.error("Error fetching patients:", error)
     );
     unsubscribeFunctions.push(unsubClients);
 
-    /* Pending appointments */
+    // Real-time pending appointments
     const unsubReq = onSnapshot(
       query(
         collection(db, "bookings"),
         where("consultantId", "==", currentUser.uid),
         where("status", "==", "pending")
       ),
-      (snap) => {
-        setPendingApt(snap.size);
-      },
-      (error) => {
-        console.error("Error fetching pending appointments:", error);
-      }
+      (snap) => setPendingApt(snap.size),
+      (error) => console.error("Error fetching pending appointments:", error)
     );
     unsubscribeFunctions.push(unsubReq);
 
-    /* Unread messages: optimized real-time listener */
-    const setupMessagesListener = async () => {
-      try {
-        const chatsQuery = query(
-          collection(db, "chats"), 
-          where("doctorUid", "==", currentUser.uid)
-        );
-        
-        const chatsSnapshot = await getDocs(chatsQuery);
-        const chatIds = chatsSnapshot.docs.map(doc => doc.id);
+    // ─── Real-time unread message counter ───
+    const chatsQuery = query(collection(db, "chats"), where("doctorUid", "==", currentUser.uid));
 
-        if (chatIds.length === 0) {
-          setUnreadMsgs(0);
-          setLoading(false);
-          return;
-        }
+    const unsubChats = onSnapshot(chatsQuery, (chatsSnapshot) => {
+      // Clear previous sublisteners
+      unsubscribeFunctions
+        .filter((f) => f.__isMsgSubListener)
+        .forEach((unsub) => unsub());
 
-        // Set up listeners for each chat's unread messages
-        chatIds.forEach(chatId => {
-          const messagesQuery = query(
-            collection(db, "chats", chatId, "messages"),
-            where("seenByDoctor", "==", false)
-          );
+      let totalUnread = 0;
+      const msgUnsubs = [];
 
-          const unsubMessages = onSnapshot(messagesQuery, async () => {
-            // Recalculate total unread messages
-            let totalUnread = 0;
-            const messagePromises = chatIds.map(async (id) => {
-              try {
-                const msgSnap = await getDocs(
-                  query(
-                    collection(db, "chats", id, "messages"), 
-                    where("seenByDoctor", "==", false)
-                  )
-                );
-                return msgSnap.size;
-              } catch (error) {
-                console.error(`Error fetching messages for chat ${id}:`, error);
-                return 0;
-              }
-            });
-            
-            const results = await Promise.all(messagePromises);
-            totalUnread = results.reduce((sum, count) => sum + count, 0);
-            
-            setUnreadMsgs(totalUnread);
-            setLoading(false);
-          }, (error) => {
-            console.error("Error in messages listener:", error);
+      chatsSnapshot.forEach((chatDoc) => {
+        const chatData = chatDoc.data();
+        const chatId = chatDoc.id;
+        const lastSeen = chatData.lastSeenByDoctor || null;
+
+        // Listen to messages within this chat
+        const msgsRef = collection(db, "chats", chatId, "messages");
+        const unsubMsgs = onSnapshot(msgsRef, (msgSnap) => {
+          let unseenCount = 0;
+          msgSnap.forEach((m) => {
+            const msg = m.data();
+            const msgTime = msg.createdAt?.toMillis?.() || 0;
+            const lastSeenTime = lastSeen?.toMillis?.() || 0;
+
+            if (
+              (!msg.seenByDoctor || msg.seenByDoctor === false) &&
+              msg.user?._id !== currentUser.uid &&
+              msgTime > lastSeenTime
+            ) {
+              unseenCount++;
+            }
           });
-          
-          unsubscribeFunctions.push(unsubMessages);
+
+          // Update total unread messages dynamically
+          totalUnread = chatsSnapshot.docs.reduce((sum, cDoc) => {
+            if (cDoc.id === chatId) return sum + unseenCount;
+            return sum;
+          }, 0);
+          setUnreadMsgs(totalUnread);
+          setLastUpdated(new Date());
+          setLoading(false);
         });
-      } catch (error) {
-        console.error("Error setting up messages listener:", error);
-        setUnreadMsgs(0);
-        setLoading(false);
-      }
-    };
 
-    setupMessagesListener();
+        unsubMsgs.__isMsgSubListener = true;
+        msgUnsubs.push(unsubMsgs);
+      });
 
-    return () => {
-      console.log("Cleaning up listeners for user:", currentUser?.uid);
-      unsubscribeFunctions.forEach(unsub => unsub());
-    };
+      unsubscribeFunctions.push(...msgUnsubs);
+    });
+
+    unsubscribeFunctions.push(unsubChats);
+
+    return () => unsubscribeFunctions.forEach((unsub) => unsub());
   }, [currentUser]);
 
-  /* Refresh dashboard data */
+  // ─── Manual Refresh Fallback ───
   const refreshDashboard = useCallback(async () => {
-    if (!currentUser) {
-      setPatients(0);
-      setPendingApt(0);
-      setUnreadMsgs(0);
-      return;
-    }
-
+    if (!currentUser) return;
     setLoading(true);
+
     try {
-      console.log("Refreshing dashboard for user:", currentUser.uid);
-      
-      // Re-fetch patients count
       const patientsSnap = await getDocs(
         query(collection(db, "clients"), where("consultantId", "==", currentUser.uid))
       );
       setPatients(patientsSnap.size);
 
-      // Re-fetch pending appointments
       const pendingSnap = await getDocs(
         query(
           collection(db, "bookings"),
@@ -175,29 +143,32 @@ const Dashboard = () => {
       );
       setPendingApt(pendingSnap.size);
 
-      // Re-fetch unread messages
-      const chats = await getDocs(
+      const chatsSnap = await getDocs(
         query(collection(db, "chats"), where("doctorUid", "==", currentUser.uid))
       );
+
       let totalUnread = 0;
-      
-      const promises = chats.docs.map(async (c) => {
-        try {
-          const msgs = await getDocs(
-            query(
-              collection(db, "chats", c.id, "messages"),
-              where("seenByDoctor", "==", false)
-            )
+      const msgPromises = chatsSnap.docs.map(async (chatDoc) => {
+        const chatData = chatDoc.data();
+        const chatId = chatDoc.id;
+        const lastSeen = chatData.lastSeenByDoctor || null;
+
+        const msgsSnap = await getDocs(collection(db, "chats", chatId, "messages"));
+        const unseen = msgsSnap.docs.filter((d) => {
+          const msg = d.data();
+          const msgTime = msg.createdAt?.toMillis?.() || 0;
+          const lastSeenTime = lastSeen?.toMillis?.() || 0;
+          return (
+            (!msg.seenByDoctor || msg.seenByDoctor === false) &&
+            msgTime > lastSeenTime
           );
-          totalUnread += msgs.size;
-        } catch (error) {
-          console.error(`Error refreshing messages for chat ${c.id}:`, error);
-        }
+        }).length;
+        return unseen;
       });
-      
-      await Promise.all(promises);
+
+      const unreadCounts = await Promise.all(msgPromises);
+      totalUnread = unreadCounts.reduce((a, b) => a + b, 0);
       setUnreadMsgs(totalUnread);
-      
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error refreshing dashboard:", error);
@@ -206,12 +177,10 @@ const Dashboard = () => {
     }
   }, [currentUser]);
 
-  const StatCard = ({ title, value, subtitle, onClick }) => (
-    <div 
-      className={`bg-white shadow-lg rounded-2xl border-2 border-[#DA79B9] p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer ${
-        onClick ? 'hover:border-[#c43d8b]' : ''
-      }`}
-      onClick={onClick}
+  // ─── UI ───
+  const StatCard = ({ title, value, subtitle }) => (
+    <div
+      className={`bg-white shadow-lg rounded-2xl border-2 border-[#DA79B9] p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-105`}
     >
       <span className="text-[#DA79B9] font-bold text-xl mb-2">{title}</span>
       <span className="text-5xl font-semibold text-gray-900 mb-2">{value}</span>
@@ -251,17 +220,10 @@ const Dashboard = () => {
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-white to-[#F2C2DE] flex flex-col">
       <Header />
-
       <main className="flex-1 flex flex-col items-center pt-24 px-4 pb-8">
         <div className="w-full max-w-6xl">
-          {/* Header with refresh button and user info */}
           <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Dashboard Overview
-              </h1>
-             
-            </div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
             <button
               onClick={refreshDashboard}
               disabled={loading}
@@ -271,34 +233,16 @@ const Dashboard = () => {
             </button>
           </div>
 
-          {/* Stats grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <StatCard 
-              title="Active Patients" 
-              value={patients} 
-              subtitle="Under your care"
-            />
-            <StatCard 
-              title="Pending Appointments" 
-              value={pendingApt} 
-              subtitle="Awaiting confirmation"
-            />
-            <StatCard 
-              title="New Messages" 
-              value={unreadMsgs} 
-              subtitle="Unread conversations"
-            />
-            <StatCard 
-              title="Satisfaction Rate" 
-              value="98%" 
-              subtitle="Client feedback"
-            />
+            <StatCard title="Active Patients" value={patients} subtitle="Under your care" />
+            <StatCard title="Pending Appointments" value={pendingApt} subtitle="Awaiting confirmation" />
+            <StatCard title="New Messages" value={unreadMsgs} subtitle="Unread conversations" />
+            <StatCard title="Satisfaction Rate" value="98%" subtitle="Client feedback" />
           </div>
 
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-600">
               Last updated: {lastUpdated.toLocaleTimeString()}
-            
             </p>
           </div>
         </div>
