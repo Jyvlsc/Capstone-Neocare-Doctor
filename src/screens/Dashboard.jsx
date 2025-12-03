@@ -17,6 +17,7 @@ const Dashboard = () => {
   const [patients, setPatients] = useState(0);
   const [pendingApt, setPendingApt] = useState(0);
   const [unreadMsgs, setUnreadMsgs] = useState(0);
+  const [avgRating, setAvgRating] = useState(0);     // ⭐ NEW
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   // ─── Handle Auth ───
@@ -28,6 +29,7 @@ const Dashboard = () => {
         setPatients(0);
         setPendingApt(0);
         setUnreadMsgs(0);
+        setAvgRating(0);
         setLoading(false);
       }
     });
@@ -40,6 +42,7 @@ const Dashboard = () => {
       setPatients(0);
       setPendingApt(0);
       setUnreadMsgs(0);
+      setAvgRating(0);
       if (!loading) setLoading(false);
       return;
     }
@@ -66,11 +69,36 @@ const Dashboard = () => {
     );
     unsubscribeFunctions.push(unsubReq);
 
-    // ─── Real-time unread message counter ───
+    // ─── ⭐ Real-time Average Rating ───
+    const unsubRating = onSnapshot(
+      query(
+        collection(db, "bookings"),
+        where("consultantId", "==", currentUser.uid),
+        where("rating", "!=", null)
+      ),
+      (snap) => {
+        if (snap.empty) {
+          setAvgRating(0);
+          return;
+        }
+
+        let total = 0;
+        snap.forEach((d) => {
+          const r = d.data().rating;
+          if (typeof r === "number") total += r;
+        });
+
+        const average = total / snap.size;
+        setAvgRating(average.toFixed(1));
+      },
+      (err) => console.error("Error fetching rating:", err)
+    );
+    unsubscribeFunctions.push(unsubRating);
+
+    // ─── Real-time unread messages ───
     const chatsQuery = query(collection(db, "chats"), where("doctorUid", "==", currentUser.uid));
 
     const unsubChats = onSnapshot(chatsQuery, (chatsSnapshot) => {
-      // Clear previous sublisteners
       unsubscribeFunctions
         .filter((f) => f.__isMsgSubListener)
         .forEach((unsub) => unsub());
@@ -83,10 +111,10 @@ const Dashboard = () => {
         const chatId = chatDoc.id;
         const lastSeen = chatData.lastSeenByDoctor || null;
 
-        // Listen to messages within this chat
         const msgsRef = collection(db, "chats", chatId, "messages");
         const unsubMsgs = onSnapshot(msgsRef, (msgSnap) => {
           let unseenCount = 0;
+
           msgSnap.forEach((m) => {
             const msg = m.data();
             const msgTime = msg.createdAt?.toMillis?.() || 0;
@@ -101,11 +129,11 @@ const Dashboard = () => {
             }
           });
 
-          // Update total unread messages dynamically
           totalUnread = chatsSnapshot.docs.reduce((sum, cDoc) => {
             if (cDoc.id === chatId) return sum + unseenCount;
             return sum;
           }, 0);
+
           setUnreadMsgs(totalUnread);
           setLastUpdated(new Date());
           setLoading(false);
@@ -129,11 +157,13 @@ const Dashboard = () => {
     setLoading(true);
 
     try {
+      // Patients
       const patientsSnap = await getDocs(
         query(collection(db, "clients"), where("consultantId", "==", currentUser.uid))
       );
       setPatients(patientsSnap.size);
 
+      // Pending appointments
       const pendingSnap = await getDocs(
         query(
           collection(db, "bookings"),
@@ -143,6 +173,27 @@ const Dashboard = () => {
       );
       setPendingApt(pendingSnap.size);
 
+      // ⭐ Ratings (manual)
+      const ratingSnap = await getDocs(
+        query(
+          collection(db, "bookings"),
+          where("consultantId", "==", currentUser.uid),
+          where("rating", "!=", null)
+        )
+      );
+
+      if (!ratingSnap.empty) {
+        let total = 0;
+        ratingSnap.forEach((d) => {
+          const r = d.data().rating;
+          if (typeof r === "number") total += r;
+        });
+        setAvgRating((total / ratingSnap.size).toFixed(1));
+      } else {
+        setAvgRating(0);
+      }
+
+      // unread messages
       const chatsSnap = await getDocs(
         query(collection(db, "chats"), where("doctorUid", "==", currentUser.uid))
       );
@@ -158,17 +209,20 @@ const Dashboard = () => {
           const msg = d.data();
           const msgTime = msg.createdAt?.toMillis?.() || 0;
           const lastSeenTime = lastSeen?.toMillis?.() || 0;
+
           return (
             (!msg.seenByDoctor || msg.seenByDoctor === false) &&
             msgTime > lastSeenTime
           );
         }).length;
+
         return unseen;
       });
 
       const unreadCounts = await Promise.all(msgPromises);
       totalUnread = unreadCounts.reduce((a, b) => a + b, 0);
       setUnreadMsgs(totalUnread);
+
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error refreshing dashboard:", error);
@@ -237,7 +291,13 @@ const Dashboard = () => {
             <StatCard title="Active Patients" value={patients} subtitle="Under your care" />
             <StatCard title="Pending Appointments" value={pendingApt} subtitle="Awaiting confirmation" />
             <StatCard title="New Messages" value={unreadMsgs} subtitle="Unread conversations" />
-            <StatCard title="Satisfaction Rate" value="98%" subtitle="Client feedback" />
+
+            {/* ⭐ Updated: Average Rating */}
+            <StatCard 
+              title="Average Rating" 
+              value={avgRating} 
+              subtitle="Client feedback" 
+            />
           </div>
 
           <div className="mt-8 text-center">
