@@ -9,7 +9,6 @@ import {
   doc,
   getDoc,
   updateDoc,
-  setDoc,
 } from "firebase/firestore";
 import { db, auth } from "../configs/firebase-config";
 import Header from "../components/Header";
@@ -36,7 +35,7 @@ const Requests = () => {
     const q = query(
       collection(db, "bookings"),
       where("doctorId", "==", user.uid),
-      where("status", "in", ["pending", "accepted"])
+      where("status", "in", ["pending", "accepted", "completed"])
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -88,7 +87,7 @@ const Requests = () => {
           fullName: b.fullName || nameMap[b.userId] || b.userId,
         }));
 
-        // Send email for new pending bookings
+        
         const newPending = enriched.filter(
           (b) => b.status === "pending" && !notifiedBookingsRef.current.has(b.id)
         );
@@ -121,21 +120,11 @@ const Requests = () => {
   const accept = async (id) => {
     setBusyId(id);
     try {
-      // Update the booking status to 'accepted' in Firestore
       const bookingRef = doc(db, "bookings", id);
       await updateDoc(bookingRef, {
         status: "accepted",
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
-
-    
-      const bookingDoc = await getDoc(bookingRef);
-      if (bookingDoc.exists()) {
-        const bookingData = bookingDoc.data();
- 
-        
-        console.log("Booking accepted and saved:", id);
-      }
 
       alert("Booking accepted! Client added.");
     } catch (e) {
@@ -150,13 +139,12 @@ const Requests = () => {
     if (!window.confirm("Decline this booking?")) return;
     setBusyId(id);
     try {
-      
       const bookingRef = doc(db, "bookings", id);
       await updateDoc(bookingRef, {
         status: "declined",
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
-      
+
       alert("Booking declined.");
     } catch (e) {
       console.error("Decline error:", e);
@@ -165,6 +153,64 @@ const Requests = () => {
       setBusyId("");
     }
   };
+
+
+ const markAsDone = async (id) => {
+  if (!window.confirm("Mark this appointment as completed?")) return;
+
+  setBusyId(id);
+  try {
+    const bookingRef = doc(db, "bookings", id);
+    await updateDoc(bookingRef, {
+      status: "completed",
+      completedAt: new Date(),
+    });
+
+   
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? { ...b, status: "completed", completedAt: new Date() }
+          : b
+      )
+    );
+
+    alert("Appointment marked as completed.");
+  } catch (e) {
+    console.error("Mark done error:", e);
+    alert("Failed to mark as completed—try again.");
+  } finally {
+    setBusyId("");
+  }
+};
+const cancelAppointment = async (id) => {
+  if (!window.confirm("Cancel this upcoming appointment?")) return;
+
+  setBusyId(id);
+  try {
+    const bookingRef = doc(db, "bookings", id);
+    await updateDoc(bookingRef, {
+      status: "cancelled",
+      cancelledAt: new Date(),
+    });
+
+  
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === id
+          ? { ...b, status: "cancelled", cancelledAt: new Date() }
+          : b
+      )
+    );
+
+    alert("Appointment has been cancelled.");
+  } catch (e) {
+    console.error("Cancel error:", e);
+    alert("Failed to cancel—try again.");
+  } finally {
+    setBusyId("");
+  }
+};
 
   const fmtDate = (d) =>
     d.toLocaleDateString("en-US", {
@@ -189,7 +235,7 @@ const Requests = () => {
   const filteredBookings = bookings.filter((b) => {
     if (filter === "pending") return b.status === "pending";
     if (filter === "upcoming") return b.status === "accepted" && b.date >= now;
-    if (filter === "completed") return b.status === "accepted" && b.date < now;
+    if (filter === "completed") return b.status === "completed";
     return false;
   });
 
@@ -258,6 +304,7 @@ const Requests = () => {
                     ₱{(b.amount / 100).toFixed(2)}
                   </p>
                 </div>
+
                 {filter === "pending" && (
                   <div className="flex gap-2">
                     <button
@@ -276,6 +323,30 @@ const Requests = () => {
                     </button>
                   </div>
                 )}
+
+             {filter === "upcoming" && (
+  <div className="flex gap-2">
+
+    {/* Mark as Done */}
+    <button
+      onClick={() => markAsDone(b.id)}
+      disabled={busyId === b.id}
+      className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50"
+    >
+      {busyId === b.id ? "…" : "Mark as Done"}
+    </button>
+
+    {/* Cancel Button (minus style) */}
+    <button
+      onClick={() => cancelAppointment(b.id)}
+      disabled={busyId === b.id}
+      className="px-4 py-2 border border-red-500 text-red-500 rounded disabled:opacity-50"
+    >
+      {busyId === b.id ? "…" : "Cancel"}
+    </button>
+
+  </div>
+)}
               </div>
             ))
           ) : (
