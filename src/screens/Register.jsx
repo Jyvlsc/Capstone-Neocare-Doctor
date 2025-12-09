@@ -1,4 +1,4 @@
-// src/screens/Register.jsx
+// src/screens/Register.jsx - UPDATED with Subspecialty Support
 
 import React, { useState, useRef, useEffect } from "react";
 import Logo from "../assets/Logo.png";
@@ -46,6 +46,7 @@ const customMapStyles = [
   },
   { elementType: "labels.text.fill", stylers: [{ color: "#ffffff" }] },
 ];
+
 const DAYS  = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const HOURS = [
   "8:00 AM to 9:00 AM","9:00 AM to 10:00 AM","10:00 AM to 11:00 AM",
@@ -53,20 +54,81 @@ const HOURS = [
   "2:00 PM to 3:00 PM","3:00 PM to 4:00 PM","4:00 PM to 5:00 PM",
 ];
 const PLATFORMS = ["In-person","Online"];
+
+// ===== UPDATED: Added subspecialties for OB-GYN =====
+const SPECIALTIES = [
+  "Cardiology",
+  "Neurology",
+  "Dermatology",
+  "Gastroenterology",
+  "Endocrinology",
+  "Orthopedics",
+  "Pediatrics",
+  "General Medicine",
+  "Ophthalmology",
+  "Psychiatry",
+  "Pulmonology",
+  "Infectious Diseases",
+  "Obstetrics & Gynecology",  // OB-GYN specialty
+];
+
+// OB-GYN subspecialties (matching chatbot)
+const OB_GYN_SUBSPECIALTIES = [
+  { code: "GENERAL_OB", name: "General Obstetrics & Gynecology" },
+  { code: "MFM", name: "Maternal-Fetal Medicine (Perinatology)" },
+  { code: "OBSTETRIC_ULTRASOUND", name: "Obstetric Ultrasound" },
+  { code: "FETAL_MEDICINE", name: "Fetal Medicine" },
+  { code: "REI", name: "Reproductive Endocrinology & Infertility (REI)" },
+  { code: "GYN_ONCOLOGY", name: "Gynecologic Oncology" },
+];
+
 const norm = e => e.trim().toLowerCase();
 const toggle = (v, arr, setArr) =>
   setArr(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]);
 
 /** ───── clinic lookup ───── **/
 async function findClinicByName(name) {
-  const q = query(
+  console.log("🔍 Searching for clinic with name:", name);
+  
+  // Try exact match first
+  let q = query(
     collection(db, "users"),
     where("role", "==", "clinic"),
     where("birthCenterName", "==", name)
   );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
-  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  let snap = await getDocs(q);
+  
+  if (!snap.empty) {
+    console.log("✅ Found clinic with exact match:", snap.docs[0].id);
+    return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  }
+  
+  // Try case-insensitive match
+  console.log("⚠️ Exact match failed, trying case-insensitive...");
+  const allClinicsSnap = await getDocs(
+    query(collection(db, "users"), where("role", "==", "clinic"))
+  );
+  
+  console.log("📋 Total clinics found:", allClinicsSnap.size);
+  
+  const normalizedName = name.toLowerCase().trim();
+  for (const doc of allClinicsSnap.docs) {
+    const clinicName = doc.data().birthCenterName || "";
+    console.log("  - Checking clinic:", clinicName);
+    
+    if (clinicName.toLowerCase().trim() === normalizedName) {
+      console.log("✅ Found clinic with case-insensitive match:", doc.id);
+      return { id: doc.id, ...doc.data() };
+    }
+  }
+  
+  console.log("❌ No clinic found with name:", name);
+  console.log("📋 Available clinics:");
+  allClinicsSnap.docs.forEach(doc => {
+    console.log("  -", doc.data().birthCenterName);
+  });
+  
+  return null;
 }
 
 /** ───── geocode helper ───── **/
@@ -109,6 +171,7 @@ export default function Register() {
   const [consultFirstName, setConsultFirstName] = useState("");
   const [consultLastName,  setConsultLastName]  = useState("");
   const [spec, setSpec]     = useState("");
+  const [subspecialty, setSubspecialty] = useState(""); // NEW: For OB-GYN subspecialty
   const [phone, setPhone]   = useState("");
   const [photo, setPhoto]   = useState(null);
   const [preview, setPreview]= useState(null);
@@ -158,6 +221,13 @@ export default function Register() {
     }
   };
 
+  // NEW: Check if OB-GYN is selected
+  const isObGyn = spec === "Obstetrics & Gynecology";
+  
+  // DEBUG: Remove these console logs after testing
+  console.log("🔍 Current specialty:", spec);
+  console.log("🔍 isObGyn:", isObGyn);
+
   /** ───── submit ───── **/
   const submit = async () => {
     if (pwd !== pwd2) return alert("Passwords don't match.");
@@ -205,9 +275,16 @@ export default function Register() {
 
     /** CONSULTANT **/
     const fullName = `${consultFirstName.trim()} ${consultLastName.trim()}`;
+    
+    // UPDATED: Check for subspecialty if OB-GYN
     if (!email || !consultFirstName || !consultLastName || !spec || !phone || !days.length || !hours.length || !plat.length || !marker) {
       return alert("Please complete all consultant fields.");
     }
+    
+    if (isObGyn && !subspecialty) {
+      return alert("Please select an OB-GYN subspecialty.");
+    }
+    
     let cred;
     try {
       cred = await createUserWithEmailAndPassword(auth, email, pwd);
@@ -230,12 +307,82 @@ export default function Register() {
     // find clinic
     const clinic = await findClinicByName(cName);
     if (!clinic) {
+      console.log("❌ Clinic lookup failed for:", cName);
+      
+      // OPTION 1: Create a fallback clinic entry
+      // Uncomment this to allow registration without existing clinic
+      /*
+      const fallbackClinic = {
+        id: "auto-created-clinic-" + Date.now(),
+        birthCenterName: cName,
+        birthCenterAddress: cAddr,
+        role: "clinic"
+      };
+      
+      // Write to users collection
+      await setDoc(doc(db, "users", fallbackClinic.id), {
+        ...fallbackClinic,
+        createdAt: new Date(),
+        email: email.trim(),
+        emailLower: norm(email)
+      });
+      
+      alert("Consultant registered! A new clinic entry was created.");
+      
+      // Continue with registration using fallback clinic
+      const consultantData = {
+        userId: user.uid,
+        email: email.trim(),
+        emailLower: norm(email),
+        name: fullName,
+        specialty: spec,
+        contactInfo: phone,
+        profilePhoto: photoURL,
+        birthCenterName: cName,
+        birthCenterAddress: cAddr,
+        birthCenterLocation: marker,
+        availableDays: days,
+        consultationHours: hours,
+        platform: plat,
+        approvalStatus: "pending",
+        clinicId: fallbackClinic.id,
+        status: "active",
+        isDeleted: false,
+      };
+      
+      if (isObGyn && subspecialty) {
+        consultantData.subspecialty = subspecialty;
+      }
+      
+      await setDoc(doc(db, "consultants", user.uid), consultantData);
+      await setDoc(doc(db, "users", user.uid), {
+        email: email.trim(),
+        emailLower: norm(email),
+        name: fullName,
+        role: "consultant",
+        specialty: spec,
+        clinicId: fallbackClinic.id,
+        createdAt: new Date(),
+      });
+      
+      return nav("/");
+      */
+      
+      // OPTION 2: Show detailed error with available clinics
       await deleteUser(user).catch(()=>{});
-      return alert("No clinic found with that name.");
+      const allClinics = await getDocs(
+        query(collection(db, "users"), where("role", "==", "clinic"))
+      );
+      const clinicNames = allClinics.docs.map(d => d.data().birthCenterName).join("\n  - ");
+      return alert(
+        `No clinic found with name: "${cName}"\n\n` +
+        `Available clinics in database:\n  - ${clinicNames}\n\n` +
+        `Please select one of these clinics from the map.`
+      );
     }
 
     // write consultant doc
-    await setDoc(doc(db, "consultants", user.uid), {
+    const consultantData = {
       userId:             user.uid,
       email:              email.trim(),
       emailLower:         norm(email),
@@ -251,7 +398,17 @@ export default function Register() {
       platform:           plat,
       approvalStatus:     "pending",
       clinicId:           clinic.id,
-    });
+      status:             "active",  // NEW: Set as active
+      isDeleted:          false,     // NEW: Not deleted
+    };
+    
+    // NEW: Add subspecialty if OB-GYN
+    if (isObGyn && subspecialty) {
+      consultantData.subspecialty = subspecialty;
+    }
+    
+    await setDoc(doc(db, "consultants", user.uid), consultantData);
+    
     // write user doc
     await setDoc(doc(db, "users", user.uid), {
       email:      email.trim(),
@@ -337,23 +494,86 @@ export default function Register() {
             <h2 className="text-2xl font-bold text-gray-800">Register as Consultant</h2>
 
             {/* Identity */}
-            {[
-              ["Email",     email, setEmail, "email"],
-              ["First Name", consultFirstName, setConsultFirstName],
-              ["Last Name", consultLastName, setConsultLastName],
-              ["Specialty", spec, setSpec],
-            ].map(([lbl, val, setter, type="text"]) => (
-              <div key={lbl}>
-                <label className="block text-sm font-medium text-gray-800">{lbl}</label>
-                <input
-                  type={type}
-                  value={val}
-                  onChange={e => setter(e.target.value)}
-                  placeholder={`Enter ${lbl}`}
-                  className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
-                />
+            <div>
+              <label className="block text-sm font-medium text-gray-800">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Enter Email"
+                className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-800">First Name</label>
+              <input
+                value={consultFirstName}
+                onChange={e => setConsultFirstName(e.target.value)}
+                placeholder="Enter First Name"
+                className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-800">Last Name</label>
+              <input
+                value={consultLastName}
+                onChange={e => setConsultLastName(e.target.value)}
+                placeholder="Enter Last Name"
+                className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+              />
+            </div>
+
+            {/* Specialty dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-800">Specialty</label>
+              <select
+                value={spec}
+                onChange={e => {
+                  setSpec(e.target.value);
+                  // Reset subspecialty when changing specialty
+                  if (e.target.value !== "Obstetrics & Gynecology") {
+                    setSubspecialty("");
+                  }
+                }}
+                className="mt-1 block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+              >
+                <option value="">-- Select Specialty --</option>
+                {SPECIALTIES.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* NEW: Subspecialty dropdown (only for OB-GYN) */}
+            {isObGyn && (
+              <div className="bg-pink-50 border-2 border-pink-300 rounded-xl p-4">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
+                  OB-GYN Subspecialty <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-600 mb-3">
+                  Select your area of specialization within OB-GYN:
+                </p>
+                <select
+                  value={subspecialty}
+                  onChange={e => setSubspecialty(e.target.value)}
+                  className="block w-full rounded-xl border border-[#DA79B9] px-4 py-2"
+                >
+                  <option value="">-- Select Subspecialty --</option>
+                  {OB_GYN_SUBSPECIALTIES.map(sub => (
+                    <option key={sub.code} value={sub.code}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+                {subspecialty && (
+                  <p className="text-xs text-green-600 mt-2">
+                    ✓ Selected: {OB_GYN_SUBSPECIALTIES.find(s => s.code === subspecialty)?.name}
+                  </p>
+                )}
               </div>
-            ))}
+            )}
 
             {/* Photo */}
             <div>
