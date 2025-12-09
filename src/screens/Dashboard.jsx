@@ -69,7 +69,7 @@ const Dashboard = () => {
     );
     unsubscribeFunctions.push(unsubReq);
 
-    // ─── ⭐ Real-time Average Rating ───
+   
     const unsubRating = onSnapshot(
       query(
         collection(db, "bookings"),
@@ -173,7 +173,7 @@ const Dashboard = () => {
       );
       setPendingApt(pendingSnap.size);
 
-      // ⭐ Ratings (manual)
+     
       const ratingSnap = await getDocs(
         query(
           collection(db, "bookings"),
@@ -292,7 +292,7 @@ const Dashboard = () => {
             <StatCard title="Pending Appointments" value={pendingApt} subtitle="Awaiting confirmation" />
             <StatCard title="New Messages" value={unreadMsgs} subtitle="Unread conversations" />
 
-            {/* ⭐ Updated: Average Rating */}
+
             <StatCard 
               title="Average Rating" 
               value={avgRating} 
